@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dispensary Roster</title>
+    <style>
+        /* PIN 登入畫面樣式 */
+        #login-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background-color: #2c3e50; color: white;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 9999;
+        }
+        #login-overlay h2 { margin-bottom: 20px; font-family: sans-serif; }
+        #login-overlay input { padding: 12px; font-size: 20px; text-align: center; border-radius: 5px; border: none; margin-bottom: 15px; width: 180px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); }
+        #login-overlay button { padding: 10px 25px; background-color: #27ae60; border: none; color: white; cursor: pointer; border-radius: 5px; font-weight: bold; font-size: 16px; transition: 0.3s; }
+        #login-overlay button:hover { background-color: #2ecc71; transform: scale(1.05); }
+
+        /* 預設隱藏主內容 */
+        #main-content { display: none; }
+
+        /* 排班表樣式 */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; color: #333; margin: 20px; }
+        h1 { text-align: center; color: #2c3e50; }
+        .controls, .leave-controls { text-align: center; margin-bottom: 20px; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .leave-controls { background-color: #e8f6f3; border-left: 5px solid #1abc9c; }
+        .controls input, .controls button, .controls select, .leave-controls input, .leave-controls button, .leave-controls select { padding: 10px; font-size: 15px; margin: 5px; border-radius: 5px; border: 1px solid #ccc; }
+        button { background-color: #27ae60; color: white; border: none; cursor: pointer; font-weight: bold; transition: background-color 0.2s; }
+        button:hover { background-color: #2ecc71; }
+        .btn-mode { background-color: #3498db; }
+        .btn-clear { background-color: #e67e22; }
+        .btn-print { background-color: #8e44ad; }
+        .btn-leave { background-color: #16a085; }
+        #leave-list-container { max-width: 600px; margin: 0 auto 20px auto; background: white; padding: 15px; border-radius: 8px; border-left: 5px solid #e74c3c; }
+        #leave-list { list-style-type: none; padding: 0; }
+        #leave-list li { background-color: #fdf2e9; padding: 8px; margin-bottom: 5px; border-radius: 5px; display: flex; justify-content: space-between; align-items: center; }
+        .btn-remove-al { background-color: #e74c3c; padding: 5px 10px; font-size: 12px; }
+        table { width: 100%; border-collapse: collapse; background-color: white; margin-bottom: 30px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: center; min-width: 90px; }
+        th { background-color: #34495e; color: white; }
+        .week-title { background-color: #bdc3c7; color: #2c3e50; text-align: left; padding: 10px; font-weight: bold; }
+        .ph-header { background-color: #c0392b !important; color: white; }
+        .ph-label { font-size: 11px; background: #f1c40f; color: #000; padding: 2px 5px; border-radius: 3px; display: inline-block; }
+        .shift-cell { cursor: pointer; min-height: 45px; }
+        .selected-swap { background-color: #f1c40f !important; color: black; }
+        .cell-al { color: #e74c3c; font-weight: bold; }
+
+        @media print {
+            @page { margin: 5mm; }
+            body { background-color: white; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            #login-overlay, h1, .controls, .leave-controls, #leave-list-container { display: none !important; }
+            #main-content { display: block !important; }
+            #roster-container { display: block !important; width: 100%; }
+            table { box-shadow: none; border: 1px solid #000; margin-bottom: 10px; table-layout: fixed; width: 100%; page-break-inside: avoid !important; }
+            th, td { border: 1px solid #000; font-size: 8pt; padding: 4px 2px; line-height: 1.2; word-wrap: break-word; color: black !important; }
+            .week-title { background-color: #bdc3c7 !important; color: #000 !important; font-size: 9pt; }
+            th { background-color: #34495e !important; color: white !important; }
+            .ph-header { background-color: #c0392b !important; color: white !important; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- 登入遮罩 -->
+    <div id="login-overlay">
+        <h2>Pharmacy Roster Login</h2>
+        <input type="password" id="pin-input" placeholder="Enter PIN" onkeydown="if(event.key==='Enter') checkPIN()">
+        <button onclick="checkPIN()">Login</button>
+    </div>
+
+    <!-- 主要內容 -->
+    <div id="main-content">
+        <h1>Dispensary Roster</h1>
+        
+        <div class="controls">
+            <label>From: <input type="date" id="start-date"></label>
+            <label>To: <input type="date" id="end-date"></label>
+            <button onclick="generateRoster()">Generate Roster</button>
+            <button id="mode-btn" class="btn-mode" onclick="toggleMode()">Current Mode: SWAP</button>
+            <button class="btn-clear" onclick="clearSavedData()">Reset All Data</button>
+            <button onclick="logout()" style="background-color: #95a5a6;">Logout</button>
+            
+            <select id="print-orientation">
+                <option value="landscape">Landscape</option>
+                <option value="portrait">Portrait</option>
+            </select>
+            <button class="btn-print" onclick="printRoster()">Print A4</button>
+        </div>
+
+        <div class="leave-controls">
+            <label>Staff: <select id="al-staff"><option value="">Select...</option></select></label>
+            <label>From: <input type="date" id="al-start"></label>
+            <label>To: <input type="date" id="al-end"></label>
+            <button class="btn-leave" onclick="addAnnualLeave()">Apply Leave</button>
+        </div>
+
+        <div id="leave-list-container" style="display: none;">
+            <h3>Applied Leaves</h3>
+            <ul id="leave-list"></ul>
+        </div>
+
+        <div id="roster-container"></div>
+    </div>
+
+    <script>
+        // --- 密碼保護 (PIN: 8112) ---
+        const ENCRYPTED_PIN = "ODExMg=="; 
+
+        function checkPIN() {
+            const input = document.getElementById('pin-input').value;
+            if (btoa(input) === ENCRYPTED_PIN) {
+                sessionStorage.setItem('roster_auth', 'granted');
+                showMain();
+            } else {
+                alert("Incorrect PIN!");
+            }
+        }
+
+        function showMain() {
+            document.getElementById('login-overlay').style.display = 'none';
+            document.getElementById('main-content').style.display = 'block';
+        }
+
+        function logout() {
+            sessionStorage.removeItem('roster_auth');
+            location.reload();
+        }
+
+        const rosterData = [
+            { role: 'Owner', name: 'Chris', class: 'role-owner', schedule: { mon: '', tue: '', wed: '', thu: '', fri: '', sat: '', sun: '' } },
+            { role: 'Owner', name: 'Gavin', class: 'role-owner', schedule: { mon: '', tue: '', wed: '', thu: '', fri: '', sat: '', sun: '' } },
+            { role: 'Pharmacist', name: 'Zehna', class: 'role-pharmacist', schedule: { mon: '', tue: '8:30am - 5pm', wed: '8:30am - 5pm', thu: '10am - 7pm', fri: '10am - 7pm', sat: '9am - 5pm', sun: '' } },
+            { role: 'Pharmacist', name: 'Joyce', class: 'role-pharmacist', schedule: { mon: '8:30am - 3pm', tue: '', wed: '', thu: '', fri: '8:30am - 3pm', sat: '', sun: '' } },
+            { role: 'Pharmacist', name: 'Sam', class: 'role-pharmacist', schedule: { mon: '10am - 2:30pm', tue: '10am - 7pm', wed: '10am - 7pm', thu: '8:30am - 5pm', fri: '', sat: '', sun: '' } },
+            { role: 'Pharmacist', name: 'Adeline', class: 'role-pharmacist', schedule: { mon: '3pm - 7pm', tue: '', wed: '', thu: '', fri: '', sat: '', sun: '10pm - 5pm' } },
+            { role: 'Technician', name: 'Louis', class: 'role-assistant', schedule: { mon: '9am - 5pm', tue: '9am - 5pm', wed: '9am - 5pm', thu: '9am - 5pm', fri: '', sat: '', sun: '10:30pm - 3pm' } },
+            { role: 'Technician', name: 'Leanne', class: 'role-assistant', schedule: { mon: '9am - 5pm', tue: '9am - 5pm', wed: '', thu: '9am - 5pm', fri: '9am - 5pm', sat: '', sun: '' } },
+            { role: 'Technician', name: 'Nandini', class: 'role-assistant', schedule: { mon: '', tue: '9am - 3pm', wed: '9am - 5pm', thu: '9am - 3pm', fri: '9am - 3pm', sat: '9am - 5pm', sun: '' } }
+        ];
+
+        let publicHolidays = [];
+        let annualLeaves = []; 
+        let manualEdits = {}; 
+        let currentMode = 'swap';
+        let selectedCell = null;
+
+        window.onload = async function() {
+            if (sessionStorage.getItem('roster_auth') === 'granted') {
+                showMain();
+            }
+            loadFromLocalStorage();
+            const staffDropdown = document.getElementById('al-staff');
+            rosterData.forEach(staff => {
+                let opt = new Option(`${staff.name} (${staff.role})`, staff.name);
+                staffDropdown.add(opt);
+            });
+            if (document.getElementById('start-date').value) {
+                await generateRoster(true); 
+            }
+        };
+
+        function saveToLocalStorage() {
+            const data = { startDate: document.getElementById('start-date').value, endDate: document.getElementById('end-date').value, annualLeaves, manualEdits };
+            localStorage.setItem('rosterAppData', JSON.stringify(data));
+        }
+
+        function loadFromLocalStorage() {
+            const saved = localStorage.getItem('rosterAppData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                document.getElementById('start-date').value = data.startDate || "";
+                document.getElementById('end-date').value = data.endDate || "";
+                annualLeaves = data.annualLeaves || [];
+                manualEdits = data.manualEdits || {};
+                updateLeaveUI();
+            }
+        }
+
+        function clearSavedData() {
+            if (confirm("Reset everything?")) {
+                localStorage.removeItem('rosterAppData');
+                location.reload();
+            }
+        }
+
+        async function fetchVicHolidays(startYear, endYear) {
+            publicHolidays = [];
+            const years = [...new Set([startYear, endYear])];
+            for (let y of years) {
+                try {
+                    const res = await fetch(`https://date.nager.at/api/v3/PublicHolidays/${y}/AU`);
+                    const data = await res.json();
+                    publicHolidays.push(...data.filter(h => h.global || (h.counties && h.counties.includes('AU-VIC'))));
+                } catch (e) { console.error(e); }
+            }
+        }
+
+        async function generateRoster(isLoad = false) {
+            const startStr = document.getElementById('start-date').value;
+            const endStr = document.getElementById('end-date').value;
+            if (!startStr || !endStr) return;
+            await fetchVicHolidays(new Date(startStr).getFullYear(), new Date(endStr).getFullYear());
+            const container = document.getElementById('roster-container');
+            container.innerHTML = ''; 
+            let curr = new Date(startStr);
+            let day = curr.getDay();
+            curr.setDate(curr.getDate() - day + (day === 0 ? -6 : 1));
+            let weekNum = 1;
+            while (curr <= new Date(endStr)) {
+                container.appendChild(createWeeklyTable(new Date(curr), weekNum++));
+                curr.setDate(curr.getDate() + 7);
+            }
+            if (!isLoad) saveToLocalStorage();
+        }
+
+        function createWeeklyTable(startDate, weekNum) {
+            const table = document.createElement('table');
+            const thead = document.createElement('thead');
+            const tbody = document.createElement('tbody');
+            thead.innerHTML = `<tr><th colspan="9" class="week-title">Week ${weekNum} - Starting ${startDate.toLocaleDateString('en-GB')}</th></tr><tr><th>Role</th><th>Name</th>${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day, i) => {
+                let d = new Date(startDate); d.setDate(d.getDate() + i);
+                let dStr = d.toISOString().split('T')[0];
+                let hol = publicHolidays.find(h => h.date === dStr);
+                return `<th class="${hol ? 'ph-header' : ''}">${day} ${d.getDate()}/${d.getMonth()+1}${hol ? `<br><span class="ph-label">${hol.localName}</span>` : ''}</th>`;
+            }).join('')}</tr>`;
+            const shiftKeys = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+            rosterData.forEach(staff => {
+                const row = document.createElement('tr');
+                row.className = staff.class;
+                row.innerHTML = `<td><strong>${staff.role}</strong></td><td><strong>${staff.name}</strong></td>`;
+                for (let i = 0; i < 7; i++) {
+                    let d = new Date(startDate); d.setDate(d.getDate() + i);
+                    let dStr = d.toISOString().split('T')[0];
+                    let key = `${staff.name}_${dStr}`;
+                    let td = document.createElement('td');
+                    td.className = 'shift-cell';
+                    td.dataset.key = key;
+                    let isHol = publicHolidays.some(h => h.date === dStr);
+                    let isAL = annualLeaves.some(l => l.name === staff.name && dStr >= l.start && dStr <= l.end);
+                    let def = staff.schedule[shiftKeys[i]];
+                    if (manualEdits[key] !== undefined) { td.innerHTML = manualEdits[key]; }
+                    else if (isHol) { td.innerHTML = ''; }
+                    else if (isAL) { td.innerHTML = def ? `AL - ${def}` : 'AL'; td.classList.add('cell-al'); }
+                    else { td.innerHTML = def; }
+                    td.onclick = function() { handleCellInteraction(this); };
+                    row.appendChild(td);
+                }
+                tbody.appendChild(row);
+            });
+            table.appendChild(thead); table.appendChild(tbody);
+            return table;
+        }
+
+        function handleCellInteraction(cell) {
+            if (currentMode === 'edit') {
+                let val = prompt("New shift value:", cell.innerText);
+                if (val !== null) { cell.innerText = val; manualEdits[cell.dataset.key] = val; saveToLocalStorage(); }
+            } else {
+                if (!selectedCell) { selectedCell = cell; cell.classList.add('selected-swap'); }
+                else {
+                    if (selectedCell === cell) { selectedCell.classList.remove('selected-swap'); selectedCell = null; return; }
+                    let tH = selectedCell.innerHTML;
+                    selectedCell.innerHTML = cell.innerHTML;
+                    cell.innerHTML = tH;
+                    manualEdits[selectedCell.dataset.key] = selectedCell.innerHTML;
+                    manualEdits[cell.dataset.key] = cell.innerHTML;
+                    selectedCell.classList.remove('selected-swap');
+                    selectedCell = null;
+                    saveToLocalStorage();
+                }
+            }
+        }
+
+        function toggleMode() {
+            currentMode = currentMode === 'swap' ? 'edit' : 'swap';
+            const b = document.getElementById('mode-btn');
+            b.innerText = `Current Mode: ${currentMode.toUpperCase()}`;
+            b.style.backgroundColor = currentMode === 'edit' ? "#e74c3c" : "#3498db";
+            if (selectedCell) { selectedCell.classList.remove('selected-swap'); selectedCell = null; }
+        }
+
+        function addAnnualLeave() {
+            const name = document.getElementById('al-staff').value;
+            const s = document.getElementById('al-start').value;
+            const e = document.getElementById('al-end').value;
+            if (!name || !s || !e) return;
+            annualLeaves.push({ name, start: s, end: e });
+            updateLeaveUI(); saveToLocalStorage(); generateRoster();
+        }
+
+        function updateLeaveUI() {
+            const list = document.getElementById('leave-list');
+            list.innerHTML = '';
+            document.getElementById('leave-list-container').style.display = annualLeaves.length ? 'block' : 'none';
+            annualLeaves.forEach((l, idx) => {
+                let li = document.createElement('li');
+                li.innerHTML = `${l.name}: ${l.start} ~ ${l.end} <button class="btn-remove-al" onclick="removeAL(${idx})">X</button>`;
+                list.appendChild(li);
+            });
+        }
+
+        function removeAL(idx) {
+            annualLeaves.splice(idx, 1);
+            updateLeaveUI(); saveToLocalStorage(); generateRoster();
+        }
+
+        function printRoster() {
+            const orient = document.getElementById('print-orientation').value;
+            let s = document.getElementById('dynamic-print-style') || document.createElement('style');
+            s.id = 'dynamic-print-style';
+            document.head.appendChild(s);
+            if (orient === 'portrait') {
+                s.innerHTML = `@media print { @page { size: A4 portrait; margin: 5mm; } body { zoom: 68%; } th:first-child, td:first-child { width: 35px !important; } }`;
+            } else {
+                s.innerHTML = `@media print { @page { size: A4 landscape; margin: 5mm; } body { zoom: 85%; } th:first-child, td:first-child { width: 40px !important; } }`;
+            }
+            window.print();
+        }
+    </script>
+</body>
+</html>
