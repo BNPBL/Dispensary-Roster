@@ -38,13 +38,21 @@
         .btn-remove-al { background-color: #e74c3c; padding: 5px 10px; font-size: 12px; }
         table { width: 100%; border-collapse: collapse; background-color: white; margin-bottom: 30px; }
         th, td { border: 1px solid #ddd; padding: 10px; text-align: center; min-width: 90px; }
-        th { background-color: #34495e; color: white; }
-        .week-title { background-color: #bdc3c7; color: #2c3e50; text-align: left; padding: 10px; font-weight: bold; }
-        .ph-header { background-color: #c0392b !important; color: white; }
+        
+        /* 已更新：Role 與 星期Header 行採用 #ffff00 黃色底、黑字 */
+        th { background-color: #ffff00 !important; color: #000000 !important; }
+        
+        /* 已更新：Week 標題行採用 #ffff00 黃色底、黑字 */
+        .week-title { background-color: #ffff00 !important; color: #000000 !important; text-align: left; padding: 10px; font-weight: bold; }
+        
+        .ph-header { background-color: #c0392b !important; color: white !important; }
         .ph-label { font-size: 11px; background: #f1c40f; color: #000; padding: 2px 5px; border-radius: 3px; display: inline-block; }
         .shift-cell { cursor: pointer; min-height: 45px; }
         .selected-swap { background-color: #f1c40f !important; color: black; }
         .cell-al { color: #e74c3c; font-weight: bold; }
+
+        .shift-open { background-color: #80ff00 !important; color: #000000; font-weight: bold; }
+        .shift-close { background-color: #ebf5fb !important; color: #2471a3; font-weight: 500; } 
 
         @media print {
             @page { margin: 5mm; }
@@ -54,9 +62,14 @@
             #roster-container { display: block !important; width: 100%; }
             table { box-shadow: none; border: 1px solid #000; margin-bottom: 10px; table-layout: fixed; width: 100%; page-break-inside: avoid !important; }
             th, td { border: 1px solid #000; font-size: 8pt; padding: 4px 2px; line-height: 1.2; word-wrap: break-word; color: black !important; }
-            .week-title { background-color: #bdc3c7 !important; color: #000 !important; font-size: 9pt; }
-            th { background-color: #34495e !important; color: white !important; }
-            .ph-header { background-color: #c0392b !important; color: white !important; }
+            
+            /* 確保列印時 Week 標題與 Header 的 #ffff00 黃色能印出 */
+            .week-title { background-color: #ffff00 !important; color: #000000 !important; font-size: 9pt; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            th { background-color: #ffff00 !important; color: #000000 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            
+            .ph-header { background-color: #c0392b !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+            .shift-open { background-color: #80ff00 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; color: #000000 !important; }
+            .shift-close { background-color: #ebf5fb !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
     </style>
 </head>
@@ -130,11 +143,11 @@
         const rosterData = [
             { role: 'Owner', name: 'Chris', class: 'role-owner', schedule: { mon: '', tue: '', wed: '', thu: '', fri: '', sat: '', sun: '' } },
             { role: 'Owner', name: 'Gavin', class: 'role-owner', schedule: { mon: '', tue: '', wed: '', thu: '', fri: '', sat: '', sun: '' } },
-            { role: 'Pharmacist', name: 'Zenah', class: 'role-pharmacist', schedule: { mon: '', tue: '8:30am - 5pm', wed: '8:30am - 5pm', thu: '10am - 7pm', fri: '10am - 7pm', sat: '9am - 5pm', sun: '' } },
+            { role: 'Pharmacist', name: 'Zehna', class: 'role-pharmacist', schedule: { mon: '', tue: '8:30am - 5pm', wed: '8:30am - 5pm', thu: '10am - 7pm', fri: '10am - 7pm', sat: '9am - 5pm', sun: '' } },
             { role: 'Pharmacist', name: 'Joyce', class: 'role-pharmacist', schedule: { mon: '8:30am - 3pm', tue: '', wed: '', thu: '', fri: '8:30am - 3pm', sat: '', sun: '' } },
             { role: 'Pharmacist', name: 'Sam', class: 'role-pharmacist', schedule: { mon: '10am - 2:30pm', tue: '10am - 7pm', wed: '10am - 7pm', thu: '8:30am - 5pm', fri: '', sat: '', sun: '' } },
             { role: 'Pharmacist', name: 'Adeline', class: 'role-pharmacist', schedule: { mon: '3pm - 7pm', tue: '', wed: '', thu: '', fri: '', sat: '', sun: '10pm - 5pm' } },
-            { role: 'Technician', name: 'Louise', class: 'role-assistant', schedule: { mon: '9am - 5pm', tue: '9am - 5pm', wed: '9am - 5pm', thu: '9am - 5pm', fri: '', sat: '', sun: '10:30pm - 3pm' } },
+            { role: 'Technician', name: 'Louis', class: 'role-assistant', schedule: { mon: '9am - 5pm', tue: '9am - 5pm', wed: '9am - 5pm', thu: '9am - 5pm', fri: '', sat: '', sun: '10:30pm - 3pm' } },
             { role: 'Technician', name: 'Leanne', class: 'role-assistant', schedule: { mon: '9am - 5pm', tue: '9am - 5pm', wed: '', thu: '9am - 5pm', fri: '9am - 5pm', sat: '', sun: '' } },
             { role: 'Technician', name: 'Nandini', class: 'role-assistant', schedule: { mon: '', tue: '9am - 3pm', wed: '9am - 5pm', thu: '9am - 3pm', fri: '9am - 3pm', sat: '9am - 5pm', sun: '' } }
         ];
@@ -239,10 +252,24 @@
                     let isHol = publicHolidays.some(h => h.date === dStr);
                     let isAL = annualLeaves.some(l => l.name === staff.name && dStr >= l.start && dStr <= l.end);
                     let def = staff.schedule[shiftKeys[i]];
-                    if (manualEdits[key] !== undefined) { td.innerHTML = manualEdits[key]; }
-                    else if (isHol) { td.innerHTML = ''; }
-                    else if (isAL) { td.innerHTML = def ? `AL - ${def}` : 'AL'; td.classList.add('cell-al'); }
-                    else { td.innerHTML = def; }
+                    
+                    let finalText = '';
+                    if (manualEdits[key] !== undefined) { finalText = manualEdits[key]; }
+                    else if (isHol) { finalText = ''; }
+                    else if (isAL) { finalText = def ? `AL - ${def}` : 'AL'; td.classList.add('cell-al'); }
+                    else { finalText = def; }
+                    
+                    td.innerHTML = finalText;
+
+                    if (!isAL && !isHol && finalText) {
+                        let textLower = finalText.toLowerCase();
+                        if (textLower.includes('8:30am')) {
+                            td.classList.add('shift-open');
+                        } else if (textLower.includes('7pm') || textLower.includes('5pm')) {
+                            td.classList.add('shift-close');
+                        }
+                    }
+
                     td.onclick = function() { handleCellInteraction(this); };
                     row.appendChild(td);
                 }
@@ -255,20 +282,40 @@
         function handleCellInteraction(cell) {
             if (currentMode === 'edit') {
                 let val = prompt("New shift value:", cell.innerText);
-                if (val !== null) { cell.innerText = val; manualEdits[cell.dataset.key] = val; saveToLocalStorage(); }
+                if (val !== null) { 
+                    cell.innerText = val; 
+                    manualEdits[cell.dataset.key] = val; 
+                    updateCellColor(cell); 
+                    saveToLocalStorage(); 
+                }
             } else {
                 if (!selectedCell) { selectedCell = cell; cell.classList.add('selected-swap'); }
                 else {
                     if (selectedCell === cell) { selectedCell.classList.remove('selected-swap'); selectedCell = null; return; }
                     let tH = selectedCell.innerHTML;
+
                     selectedCell.innerHTML = cell.innerHTML;
                     cell.innerHTML = tH;
+                    
                     manualEdits[selectedCell.dataset.key] = selectedCell.innerHTML;
                     manualEdits[cell.dataset.key] = cell.innerHTML;
+                    
+                    updateCellColor(selectedCell);
+                    updateCellColor(cell);
+
                     selectedCell.classList.remove('selected-swap');
                     selectedCell = null;
                     saveToLocalStorage();
                 }
+            }
+        }
+
+        function updateCellColor(cell) {
+            cell.classList.remove('shift-open', 'shift-close');
+            let text = cell.innerText.toLowerCase();
+            if (text && !cell.classList.contains('cell-al')) {
+                if (text.includes('8:30am')) cell.classList.add('shift-open');
+                else if (text.includes('7pm') || text.includes('5pm')) cell.classList.add('shift-close');
             }
         }
 
